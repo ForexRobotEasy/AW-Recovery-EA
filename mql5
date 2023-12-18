@@ -1,0 +1,120 @@
+
+//+------------------------------------------------------------------+
+//|                                            AW Recovery EA        |
+//|                                            forexroboteasy.com    |
+//|                                            Forex Robot Easy Team |
+//|                                                                  |
+//|        This expert advisor implements various functions          |
+//|        for recovery and risk management in trading.              |
+//+------------------------------------------------------------------+
+
+// Function to close other windows of the selected instrument
+void CloseOtherWindows(string symbol)
+{
+    // Get the number of open charts
+    int charts = ChartGetInteger(0, CHART_COUNT);
+
+    // Loop through all the open charts
+    for (int i = 0; i < charts; i++)
+    {
+        // Get the symbol of the current chart
+        string chartSymbol = ChartGetSymbol(i);
+
+        // Check if the symbol matches the selected instrument
+        if (StringCompare(chartSymbol, symbol) == 0)
+        {
+            // Close the chart if it is not the current chart
+            if (i != ChartID())
+                ChartClose(i);
+        }
+    }
+}
+
+// Function to reset TakeProfit and StopLoss levels for all processed orders
+// and delete pending orders with corresponding identifiers
+void ResetOrders()
+{
+    // Get the total number of orders
+    int totalOrders = OrdersTotal();
+
+    // Loop through all the orders
+    for (int i = totalOrders - 1; i >= 0; i--)
+    {
+        // Select the order by index
+        if (OrderSelect(i, SELECT_BY_POS, MODE_TRADES))
+        {
+            // Reset TakeProfit and StopLoss levels
+            OrderModify(OrderTicket(), OrderOpenPrice(), 0, 0, 0, CLR_NONE);
+
+            // Delete pending orders
+            if (OrderType() == OP_PENDING)
+                OrderDelete(OrderTicket());
+        }
+    }
+}
+
+// Function to close all processed profitable orders
+void CloseProfitableOrders()
+{
+    // Get the total number of orders
+    int totalOrders = OrdersTotal();
+
+    // Loop through all the orders
+    for (int i = totalOrders - 1; i >= 0; i--)
+    {
+        // Select the order by index
+        if (OrderSelect(i, SELECT_BY_POS, MODE_TRADES))
+        {
+            // Check if the order is profitable
+            if (OrderProfit() > 0)
+            {
+                // Close the order
+                OrderClose(OrderTicket(), OrderLots(), Bid, 5, CLR_NONE);
+            }
+        }
+    }
+}
+
+// Function to lock a losing position by opening a locking order
+void LockLosingPosition()
+{
+    // Get the total number of orders
+    int totalOrders = OrdersTotal();
+
+    // Loop through all the orders
+    for (int i = totalOrders - 1; i >= 0; i--)
+    {
+        // Select the order by index
+        if (OrderSelect(i, SELECT_BY_POS, MODE_TRADES))
+        {
+            // Check if the order is losing
+            if (OrderProfit() < 0)
+            {
+                // Calculate the locking order volume
+                double lockVolume = OrderLots() * 2;
+
+                // Open the locking order in the opposite direction
+                if (OrderType() == OP_BUY)
+                    OrderSend(Symbol(), OP_SELL, lockVolume, Ask, 5, 0, 0, 'Lock Order', 0, 0, CLR_NONE);
+                else if (OrderType() == OP_SELL)
+                    OrderSend(Symbol(), OP_BUY, lockVolume, Bid, 5, 0, 0, 'Lock Order', 0, 0, CLR_NONE);
+            }
+        }
+    }
+}
+
+// Main function
+void OnTick()
+{
+    // Close other windows of the selected instrument
+    CloseOtherWindows(Symbol());
+
+    // Reset TakeProfit and StopLoss levels for all processed orders
+    ResetOrders();
+
+    // Close all processed profitable orders
+    CloseProfitableOrders();
+
+    // Lock losing positions
+    LockLosingPosition();
+}
